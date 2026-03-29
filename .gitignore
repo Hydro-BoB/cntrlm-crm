@@ -1,0 +1,5 @@
+backend/.env
+backend/.env.production
+.env*
+node_modules/
+data/*.db

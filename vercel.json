@@ -1,0 +1,13 @@
+{
+  "projects": [
+    {
+      "name": "cntrlm-crm-dashboard",
+      "rootDirectory": "dashboard",
+      "buildCommand": "npm run build",
+      "outputDirectory": "dashboard/.next",
+      "env": {
+        "NEXT_PUBLIC_API_URL": "https://api.cntrlm.com"
+      }
+    }
+  ]
+}
