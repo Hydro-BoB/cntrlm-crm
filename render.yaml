@@ -14,7 +14,6 @@ services:
       - key: TWILIO_ACCOUNT_SID
         value: YOUR_TWILIO_ACCOUNT_SID
       - key: TWILIO_AUTH_TOKEN
-        sync: false
         value: YOUR_TWILIO_AUTH_TOKEN
       - key: TWILIO_PHONE_NUMBER
         value: +12602394730
