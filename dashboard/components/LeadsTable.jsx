@@ -1,137 +1,99 @@
 'use client';
 
-import { useState } from 'react';
-import { ArrowUpDown, Trash2, Edit2 } from 'lucide-react';
+import { Phone, Edit, Trash2 } from 'lucide-react';
 
-export default function LeadsTable({ leads, loading, onRefresh }) {
-  const [sortKey, setSortKey] = useState('created_at');
-  const [sortOrder, setSortOrder] = useState('DESC');
-
-  const sortedLeads = [...leads].sort((a, b) => {
-    let aVal = a[sortKey];
-    let bVal = b[sortKey];
-
-    if (typeof aVal === 'string') {
-      aVal = aVal.toLowerCase();
-      bVal = bVal.toLowerCase();
-    }
-
-    if (sortOrder === 'ASC') {
-      return aVal > bVal ? 1 : -1;
-    }
-    return aVal < bVal ? 1 : -1;
-  });
-
-  const handleSort = (key) => {
-    if (sortKey === key) {
-      setSortOrder(sortOrder === 'ASC' ? 'DESC' : 'ASC');
-    } else {
-      setSortKey(key);
-      setSortOrder('ASC');
+export default function LeadsTable({ leads = [], loading = false }) {
+  const getCallStatusColor = (status) => {
+    switch (status) {
+      case 'booked': return 'bg-green-100 text-green-700';
+      case 'callback': return 'bg-yellow-100 text-yellow-700';
+      case 'not_interested': return 'bg-red-100 text-red-700';
+      case 'called': return 'bg-blue-100 text-blue-700';
+      default: return 'bg-gray-100 text-gray-600';
     }
   };
 
-  const handleDelete = async (id) => {
-    if (!confirm('Delete this lead?')) return;
-    try {
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/leads/${id}`, {
-        method: 'DELETE',
-      });
-      onRefresh();
-    } catch (error) {
-      console.error('Failed to delete:', error);
-    }
+  const getScoreBadgeColor = (score) => {
+    if (score >= 8) return 'bg-green-100 text-green-700';
+    if (score >= 5) return 'bg-yellow-100 text-yellow-700';
+    return 'bg-red-100 text-red-700';
   };
 
   if (loading) {
-    return <div className="text-center py-8 text-gray-400">Loading leads...</div>;
+    return (
+      <div className="card overflow-hidden">
+        <div className="space-y-3 p-6">
+          {[...Array(5)].map((_, i) => (
+            <div key={i} className="h-12 bg-gray-200 rounded animate-pulse" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (leads.length === 0) {
+    return (
+      <div className="card p-12 text-center">
+        <p className="text-gray-500">No leads found. Try adjusting your filters.</p>
+      </div>
+    );
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-md overflow-hidden">
+    <div className="card overflow-hidden">
       <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-100 border-b">
-            <tr>
-              {[
-                { key: 'name', label: 'Name' },
-                { key: 'business', label: 'Business' },
-                { key: 'city', label: 'City' },
-                { key: 'phone', label: 'Phone' },
-                { key: 'website_score', label: 'Score' },
-                { key: 'hot_flag', label: '🔥 Hot' },
-                { key: 'call_status', label: 'Status' },
-              ].map((col) => (
-                <th
-                  key={col.key}
-                  onClick={() => handleSort(col.key)}
-                  className="px-4 py-3 text-left font-semibold text-gray-700 cursor-pointer hover:bg-gray-200 transition"
-                >
-                  <div className="flex items-center gap-2">
-                    {col.label}
-                    <ArrowUpDown className="w-3 h-3 opacity-50" />
-                  </div>
-                </th>
-              ))}
-              <th className="px-4 py-3 text-right font-semibold text-gray-700">Actions</th>
+        <table className="w-full">
+          <thead>
+            <tr className="border-b border-gray-200 bg-gray-50">
+              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700">Business Name</th>
+              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700">Category</th>
+              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700">City</th>
+              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700">Phone</th>
+              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700">Email</th>
+              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700">Score</th>
+              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700">Call Status</th>
+              <th className="px-6 py-3 text-center text-xs font-semibold text-gray-700">Hot</th>
+              <th className="px-6 py-3 text-right text-xs font-semibold text-gray-700">Actions</th>
             </tr>
           </thead>
-          <tbody>
-            {sortedLeads.map((lead) => (
-              <tr
-                key={lead.id}
-                className="border-b hover:bg-blue-50 transition cursor-pointer"
-              >
-                <td className="px-4 py-3 font-semibold text-gray-900">{lead.name}</td>
-                <td className="px-4 py-3 text-gray-700">{lead.business || '-'}</td>
-                <td className="px-4 py-3 text-gray-700">{lead.city || '-'}</td>
-                <td className="px-4 py-3 text-gray-700">{lead.phone || '-'}</td>
-                <td className="px-4 py-3">
-                  <span
-                    className={`px-3 py-1 rounded-full text-white text-xs font-semibold ${
-                      lead.website_score >= 7
-                        ? 'bg-green-500'
-                        : lead.website_score >= 4
-                        ? 'bg-yellow-500'
-                        : 'bg-red-500'
-                    }`}
-                  >
+          <tbody className="divide-y divide-gray-200">
+            {leads.map((lead) => (
+              <tr key={lead.id} className="hover:bg-gray-50 transition-colors">
+                <td className="px-6 py-4 text-sm font-medium text-gray-900">{lead.business || lead.name}</td>
+                <td className="px-6 py-4 text-sm text-gray-600">{lead.category}</td>
+                <td className="px-6 py-4 text-sm text-gray-600">{lead.city}</td>
+                <td className="px-6 py-4 text-sm text-gray-600">{lead.phone}</td>
+                <td className="px-6 py-4 text-sm text-blue-600 truncate max-w-[150px]">{lead.email || '—'}</td>
+                <td className="px-6 py-4 text-sm">
+                  <span className={`px-2 py-1 rounded text-xs font-medium ${getScoreBadgeColor(lead.website_score)}`}>
                     {lead.website_score}/10
                   </span>
                 </td>
-                <td className="px-4 py-3 text-center">
-                  {lead.hot_flag === 'yes' ? '🔥' : '✓'}
-                </td>
-                <td className="px-4 py-3">
-                  <span
-                    className={`px-2 py-1 rounded text-xs font-semibold text-white ${
-                      lead.call_status === 'booked'
-                        ? 'bg-green-600'
-                        : lead.call_status === 'callback'
-                        ? 'bg-blue-600'
-                        : lead.call_status === 'not_interested'
-                        ? 'bg-red-600'
-                        : 'bg-gray-600'
-                    }`}
-                  >
-                    {lead.call_status}
+                <td className="px-6 py-4 text-sm">
+                  <span className={`px-2 py-1 rounded text-xs font-medium ${getCallStatusColor(lead.call_status)}`}>
+                    {lead.call_status || 'no_answer'}
                   </span>
                 </td>
-                <td className="px-4 py-3 text-right">
-                  <button
-                    onClick={() => handleDelete(lead.id)}
-                    className="text-red-600 hover:text-red-800 transition"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                <td className="px-6 py-4 text-center text-sm">
+                  {lead.hot_flag === 'yes' && <span className="text-xl">🔥</span>}
+                </td>
+                <td className="px-6 py-4 text-right">
+                  <div className="flex justify-end gap-2">
+                    <button className="p-2 text-green-600 hover:bg-green-50 rounded transition-colors" title="Call">
+                      <Phone size={16} />
+                    </button>
+                    <button className="p-2 text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Edit">
+                      <Edit size={16} />
+                    </button>
+                    <button className="p-2 text-red-600 hover:bg-red-50 rounded transition-colors" title="Delete">
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
-      </div>
-      <div className="px-6 py-4 bg-gray-50 text-sm text-gray-600 border-t">
-        Total: <strong>{leads.length}</strong> leads
       </div>
     </div>
   );

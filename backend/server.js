@@ -11,8 +11,93 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const db = new Database(join(__dirname, '..', 'data', 'leads.db'));
 
 const app = express();
-app.use(cors());
+app.use(cors({ origin: '*' }));
 app.use(express.json());
+
+// POST /api/calls/trigger - Trigger outbound call via 11Labs Batch Call API
+app.post('/api/calls/trigger', async (req, res) => {
+  try {
+    const { phone, name, business, website_score, website_weakness, pitch_angle, lead_id } = req.body;
+
+    if (!phone || !name) {
+      return res.status(400).json({ success: false, error: 'phone and name required' });
+    }
+
+    const apiKey = process.env.ELEVENLABS_API_KEY;
+    const agentId = process.env.ELEVENLABS_AGENT_ID;
+
+    if (!apiKey || !agentId) {
+      return res.status(500).json({ success: false, error: '11Labs credentials not configured' });
+    }
+
+    // Build dynamic variables for the agent
+    const pitchContext = website_score === 0
+      ? `${name} has no website — pitch web design + AI setup`
+      : `${name}'s website weakness: ${website_weakness || 'needs improvement'} (score: ${website_score}/10)`;
+
+    const phoneNumberId = process.env.ELEVENLABS_PHONE_NUMBER_ID;
+
+    // Call 11Labs Twilio Outbound Call API
+    const response = await fetch('https://api.elevenlabs.io/v1/convai/twilio/outbound-call', {
+      method: 'POST',
+      headers: {
+        'xi-api-key': apiKey,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        agent_id: agentId,
+        agent_phone_number_id: phoneNumberId,
+        to_number: phone,
+        conversation_initiation_client_data: {
+          dynamic_variables: {
+            prospect_name: name,
+            business_name: business || 'your business',
+            pitch_context: pitchContext,
+            website_score: String(website_score || 0),
+          },
+        },
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      return res.status(500).json({ success: false, error: data.detail || JSON.stringify(data) });
+    }
+
+    // Update lead status in DB
+    if (lead_id) {
+      db.prepare(`UPDATE leads SET call_status = 'called', updated_at = datetime('now') WHERE id = ?`).run(lead_id);
+    }
+
+    res.json({ success: true, call_id: data.batch_id || data.id, status: 'initiated', to: phone });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// POST /api/calls/webhook - 11Labs posts outcome here after call ends
+app.post('/api/calls/webhook', (req, res) => {
+  try {
+    const { conversation_id, status, transcript, dynamic_variables } = req.body;
+    const prospectName = dynamic_variables?.prospect_name;
+
+    // Map 11Labs outcome to CRM status
+    let callStatus = 'no_answer';
+    if (status === 'done') callStatus = 'callback';
+    if (transcript?.toLowerCase().includes('book') || transcript?.toLowerCase().includes('yes')) callStatus = 'booked';
+    if (transcript?.toLowerCase().includes('not interested') || transcript?.toLowerCase().includes('no thanks')) callStatus = 'not_interested';
+
+    // Update lead by name
+    if (prospectName) {
+      db.prepare(`UPDATE leads SET call_status = ?, updated_at = datetime('now') WHERE name = ?`).run(callStatus, prospectName);
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
 
 // GET /api/leads - List all leads with filters
 app.get('/api/leads', (req, res) => {
@@ -44,6 +129,25 @@ app.get('/api/leads', (req, res) => {
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }
+});
+
+// GET /api/dashboard/stats + /api/dashboard/activities aliases
+app.get('/api/dashboard/stats', (req, res) => {
+  try {
+    const total = db.prepare('SELECT COUNT(*) as count FROM leads').get();
+    const hotLeads = db.prepare("SELECT COUNT(*) as count FROM leads WHERE hot_flag = 'yes'").get();
+    const booked = db.prepare("SELECT COUNT(*) as count FROM leads WHERE call_status = 'booked'").get();
+    const called = db.prepare("SELECT COUNT(*) as count FROM leads WHERE call_status != 'no_answer'").get();
+    res.json({ success: true, data: { totalLeads: total.count, hotLeads: hotLeads.count, callsMade: called.count, meetingsBooked: booked.count } });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+app.get('/api/dashboard/activities', (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 5;
+    const leads = db.prepare(`SELECT * FROM leads ORDER BY updated_at DESC LIMIT ?`).all(limit);
+    res.json({ success: true, data: leads });
+  } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
 // GET /api/stats - Dashboard stats

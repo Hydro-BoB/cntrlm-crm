@@ -1,35 +1,57 @@
 'use client';
 
-export default function KanbanBoard({ leads }) {
-  const buckets = {
-    'P1: Hot': leads.filter(l => l.hot_flag === 'yes' && l.website_score === 0),
-    'P2: No Website': leads.filter(l => l.hot_flag === 'yes' && l.website_score > 0),
-    'P3: Callback': leads.filter(l => l.call_status === 'callback'),
-    'P4: Booked': leads.filter(l => l.call_status === 'booked'),
-  };
+export default function KanbanBoard({ columns = {}, loading = false }) {
+  const columnConfig = [
+    { key: 'priority1', title: '🔴 Priority 1', subtitle: 'No Website', bg: 'bg-red-50' },
+    { key: 'priority2', title: '🟠 Priority 2', subtitle: 'Poor (1-4)', bg: 'bg-orange-50' },
+    { key: 'priority3', title: '🟡 Priority 3', subtitle: 'Average (5-7)', bg: 'bg-yellow-50' },
+    { key: 'priority4', title: '🟢 Priority 4', subtitle: 'Good (8-10)', bg: 'bg-green-50' },
+  ];
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-      {Object.entries(buckets).map(([bucket, items]) => (
-        <div key={bucket} className="bg-gray-200 rounded-lg p-4">
-          <h3 className="font-semibold text-gray-900 mb-4">{bucket}</h3>
-          <div className="space-y-3">
-            {items.map((lead) => (
-              <div key={lead.id} className="bg-white p-3 rounded-lg shadow-sm">
-                <p className="font-semibold text-sm text-gray-900">{lead.name}</p>
-                <p className="text-xs text-gray-600">{lead.business}</p>
-                <p className="text-xs text-gray-500 mt-2">{lead.city}, {lead.country}</p>
+    <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+      {columnConfig.map((config) => {
+        const leads = columns[config.key] || [];
+        return (
+          <div key={config.key} className={`${config.bg} rounded-lg p-4 min-h-[600px]`}>
+            {/* Column header */}
+            <div className="mb-4">
+              <h3 className="font-semibold text-gray-900">{config.title}</h3>
+              <p className="text-sm text-gray-600 mt-1">{config.subtitle}</p>
+              <div className="mt-2 inline-block px-2 py-1 bg-white rounded text-sm font-medium text-gray-700">
+                {leads.length} leads
               </div>
-            ))}
-            {items.length === 0 && (
-              <div className="text-center py-8 text-gray-400 text-sm">No leads</div>
-            )}
+            </div>
+
+            {/* Cards */}
+            <div className="space-y-3">
+              {loading ? (
+                [...Array(3)].map((_, i) => (
+                  <div key={i} className="h-24 bg-gray-200 rounded-lg animate-pulse" />
+                ))
+              ) : leads.length === 0 ? (
+                <p className="text-sm text-gray-500 text-center py-8">No leads</p>
+              ) : (
+                leads.map((lead) => (
+                  <div
+                    key={lead.id}
+                    className="bg-white rounded-lg p-4 border border-gray-200 hover:shadow-md transition-shadow cursor-move"
+                  >
+                    <h4 className="font-medium text-gray-900 text-sm">{lead.businessName}</h4>
+                    <p className="text-xs text-gray-500 mt-1">{lead.category}</p>
+                    <p className="text-xs text-gray-600 mt-2">{lead.phone}</p>
+                    <div className="mt-3">
+                      <span className="inline-block px-2 py-1 bg-gray-100 text-xs rounded text-gray-700">
+                        {lead.callStatus}
+                      </span>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
-          <div className="mt-4 pt-4 border-t border-gray-300 text-sm font-semibold text-gray-700">
-            Count: {items.length}
-          </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

@@ -7,7 +7,7 @@ import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const dbPath = join(__dirname, '..', 'data', 'leads.db');
-const csvPath = join(__dirname, '..', 'data', 'website_leads.csv');
+const csvPath = join(__dirname, '..', 'data', 'leads_100_with_contacts.csv');
 
 const db = new Database(dbPath);
 
@@ -25,16 +25,17 @@ createReadStream(csvPath)
   .pipe(csv())
   .on('data', (row) => {
     try {
-      // CSV columns: name, email, phone, business, category, city, country, website, rating
-      const name = row.name?.trim();
-      const email = row.email?.trim();
-      const phone = row.phone?.trim();
-      const business = row.business?.trim();
-      const category = row.category?.trim();
-      const city = row.city?.trim();
-      const country = row.country?.trim();
-      const website = row.website?.trim();
-      const rating = parseInt(row.rating) || 0;
+      // CSV columns: Business Name,Category,City,Country,Phone,Email,Address,Website,Rating,Status
+      const name = (row['Business Name'] || row.name || '').trim();
+      const email = (row['Email'] || row.email || '').trim();
+      const phone = (row['Phone'] || row.phone || '').trim();
+      const business = (row['Business Name'] || row.business || '').trim();
+      const category = (row['Category'] || row.category || '').trim();
+      const city = (row['City'] || row.city || '').trim();
+      const country = (row['Country'] || row.country || '').trim();
+      const websiteRaw = (row['Website'] || row.website || '').trim();
+      const website = websiteRaw === 'NO WEBSITE' ? '' : websiteRaw;
+      const rating = parseFloat(row['Rating'] || row.rating) || 0;
 
       if (!name) {
         skipped++;
